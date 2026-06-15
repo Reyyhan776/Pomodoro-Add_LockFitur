@@ -1,6 +1,8 @@
 com\cleverai\util\Database.class
 com\cleverai\model\Dashboard.class
 com\cleverai\dao\DashboardDAO.class
+com\cleverai\dao\AllowedUrlDAO.class
+com\cleverai\model\AllowedUrl.class
 com\cleverai\handler\ChatHistoryHandler.class
 com\cleverai\handler\PreferencesHandler.class
 com\cleverai\dao\UserDAO.class

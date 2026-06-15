@@ -212,6 +212,9 @@ window.addEventListener("load", () => {
 
   /* ── Save state on tab close / navigate away ── */
   window.addEventListener("beforeunload", saveTimerState);
+
+  /* ── Browser panel init ── */
+  initBrowserPanel();
 });
 
 /* ════════════════════════════════════
@@ -852,4 +855,289 @@ function initBg() {
 
     requestAnimationFrame(draw);
   })();
+}
+
+/* ════════════════════════════════════
+   BROWSER PANEL (Allowed URLs / SEB-like)
+   ════════════════════════════════════ */
+
+let allowedUrls = [];
+let currentIframeUrl = '';
+let iframeLoadTimer = null;
+
+function initBrowserPanel() {
+  const user = JSON.parse(
+    sessionStorage.getItem('cleverai_user') ||
+    localStorage.getItem('cleverai_user') ||
+    'null'
+  );
+
+  /* Show admin URL manager if user is admin */
+  if (user && user.role === 'admin') {
+    const adminPanel = document.getElementById('admin-url-manager');
+    if (adminPanel) adminPanel.style.display = '';
+  }
+
+  loadAllowedUrls();
+}
+
+function loadAllowedUrls() {
+  fetch(API + '/pomodoro/allowed-urls')
+    .then(r => r.json())
+    .then(data => {
+      if (!Array.isArray(data)) return;
+      allowedUrls = data;
+      renderUrlButtons();
+      renderAdminUrlList();
+    })
+    .catch(() => {
+      /* Offline fallback — show empty */
+      allowedUrls = [];
+      renderUrlButtons();
+    });
+}
+
+function renderUrlButtons() {
+  const container = document.getElementById('url-quick-links');
+  const emptyMsg = document.getElementById('url-empty-msg');
+  if (!container) return;
+
+  if (allowedUrls.length === 0) {
+    container.innerHTML = '<p class="url-empty-msg">Belum ada URL yang ditambahkan oleh admin.</p>';
+    return;
+  }
+
+  container.innerHTML = allowedUrls.map(u =>
+    `<button class="url-link-btn" data-url="${escapeHtml(u.url)}" data-id="${u.id}" onclick="openInIframe('${escapeJs(u.url)}', '${escapeJs(u.label)}')">
+      <span class="btn-emoji">${u.iconEmoji || '🌐'}</span>
+      ${escapeHtml(u.label)}
+    </button>`
+  ).join('');
+}
+
+function renderAdminUrlList() {
+  const list = document.getElementById('admin-url-list');
+  if (!list) return;
+
+  if (allowedUrls.length === 0) {
+    list.innerHTML = '<p style="font-size:11px;color:var(--t3);padding:4px 0;">Belum ada URL.</p>';
+    return;
+  }
+
+  list.innerHTML = allowedUrls.map(u =>
+    `<div class="admin-url-item">
+      <span class="url-emoji">${u.iconEmoji || '🌐'}</span>
+      <span class="url-label-text">${escapeHtml(u.label)}</span>
+      <span class="url-href">${escapeHtml(u.url)}</span>
+      <button class="btn-delete-url" onclick="deleteAllowedUrl(${u.id})" title="Hapus URL">
+        <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
+          <path d="M3 3L9 9M9 3L3 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>`
+  ).join('');
+}
+
+function addAllowedUrl() {
+  const user = JSON.parse(
+    sessionStorage.getItem('cleverai_user') ||
+    localStorage.getItem('cleverai_user') ||
+    'null'
+  );
+  if (!user) return;
+
+  let url = document.getElementById('input-url').value.trim();
+  const label = document.getElementById('input-label').value.trim();
+  const iconEmoji = document.getElementById('input-emoji').value.trim() || '🌐';
+
+  if (!url || !label) {
+    showToast('⚠ URL dan Label wajib diisi.', 'break-end');
+    return;
+  }
+
+  /* Auto-add https:// if missing */
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+
+  fetch(API + '/pomodoro/allowed-urls', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: user.username,
+      url: url,
+      label: label,
+      iconEmoji: iconEmoji
+    })
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('✓ URL berhasil ditambahkan!', 'focus-end');
+        document.getElementById('input-url').value = '';
+        document.getElementById('input-label').value = '';
+        document.getElementById('input-emoji').value = '';
+        loadAllowedUrls();
+      } else {
+        showToast('⚠ ' + (d.error || 'Gagal menambah URL'), 'break-end');
+      }
+    })
+    .catch(() => showToast('⚠ Gagal terhubung ke server', 'break-end'));
+}
+
+function deleteAllowedUrl(urlId) {
+  const user = JSON.parse(
+    sessionStorage.getItem('cleverai_user') ||
+    localStorage.getItem('cleverai_user') ||
+    'null'
+  );
+  if (!user) return;
+
+  fetch(API + '/pomodoro/allowed-urls/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: user.username,
+      urlId: urlId
+    })
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('✓ URL dihapus.', 'focus-end');
+        /* If the deleted URL is currently open in iframe, close it */
+        const deleted = allowedUrls.find(u => u.id === urlId);
+        if (deleted && deleted.url === currentIframeUrl) {
+          closeIframe();
+        }
+        loadAllowedUrls();
+      } else {
+        showToast('⚠ ' + (d.error || 'Gagal menghapus URL'), 'break-end');
+      }
+    })
+    .catch(() => showToast('⚠ Gagal terhubung ke server', 'break-end'));
+}
+
+/* ── Iframe Management ── */
+
+function openInIframe(url, label) {
+  const wrap = document.getElementById('browser-iframe-wrap');
+  const frame = document.getElementById('browser-frame');
+  const loading = document.getElementById('iframe-loading');
+  const error = document.getElementById('iframe-error');
+  const urlText = document.getElementById('iframe-url-text');
+
+  if (!wrap || !frame) return;
+
+  currentIframeUrl = url;
+
+  /* Update URL display */
+  urlText.textContent = url;
+
+  /* Mark active button */
+  document.querySelectorAll('.url-link-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.url === url);
+  });
+
+  /* Show container + loading */
+  wrap.classList.add('open');
+  loading.classList.add('show');
+  error.classList.remove('show');
+  frame.style.display = 'none';
+
+  /* Clear previous timer */
+  if (iframeLoadTimer) clearTimeout(iframeLoadTimer);
+
+  /* Set iframe src */
+  frame.src = url;
+
+  /* Listen for load event */
+  frame.onload = function () {
+    if (iframeLoadTimer) clearTimeout(iframeLoadTimer);
+    loading.classList.remove('show');
+
+    /* Try to detect if iframe actually loaded content */
+    try {
+      /* If we can access contentWindow.length, it loaded */
+      const _test = frame.contentWindow.location.href;
+      frame.style.display = '';
+    } catch (e) {
+      /* Cross-origin — the page loaded but we can't access it */
+      /* This is actually fine, the iframe is displaying the content */
+      frame.style.display = '';
+    }
+  };
+
+  frame.onerror = function () {
+    if (iframeLoadTimer) clearTimeout(iframeLoadTimer);
+    loading.classList.remove('show');
+    frame.style.display = 'none';
+    error.classList.add('show');
+  };
+
+  /* Timeout fallback — if iframe doesn't load within 10s, show error */
+  iframeLoadTimer = setTimeout(() => {
+    if (loading.classList.contains('show')) {
+      loading.classList.remove('show');
+      /* Check if frame has content */
+      try {
+        if (frame.contentDocument && frame.contentDocument.body &&
+            frame.contentDocument.body.innerHTML.length > 0) {
+          frame.style.display = '';
+        } else {
+          frame.style.display = 'none';
+          error.classList.add('show');
+        }
+      } catch (e) {
+        /* Cross-origin — assume it loaded fine */
+        frame.style.display = '';
+      }
+    }
+  }, 10000);
+
+  /* Scroll to the browser panel */
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeIframe() {
+  const wrap = document.getElementById('browser-iframe-wrap');
+  const frame = document.getElementById('browser-frame');
+  const loading = document.getElementById('iframe-loading');
+  const error = document.getElementById('iframe-error');
+
+  if (iframeLoadTimer) clearTimeout(iframeLoadTimer);
+
+  if (frame) {
+    frame.src = 'about:blank';
+    frame.style.display = 'none';
+  }
+  if (loading) loading.classList.remove('show');
+  if (error) error.classList.remove('show');
+  if (wrap) wrap.classList.remove('open');
+
+  currentIframeUrl = '';
+
+  /* Clear active buttons */
+  document.querySelectorAll('.url-link-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+}
+
+function openInNewTab() {
+  if (currentIframeUrl) {
+    window.open(currentIframeUrl, '_blank');
+  }
+}
+
+/* ── Escape Helpers ── */
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function escapeJs(str) {
+  if (!str) return '';
+  return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
 }

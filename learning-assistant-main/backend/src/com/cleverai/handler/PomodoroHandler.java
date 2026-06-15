@@ -1,5 +1,6 @@
 package com.cleverai.handler;
 
+import com.cleverai.dao.AllowedUrlDAO;
 import com.cleverai.dao.HistoryPomodoroDAO;
 import com.cleverai.util.HandlerUtil;
 import com.cleverai.util.JsonUtil;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class PomodoroHandler implements HttpHandler {
 
     private final HistoryPomodoroDAO historyDAO = new HistoryPomodoroDAO();
+    private final AllowedUrlDAO allowedUrlDAO = new AllowedUrlDAO();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -36,6 +38,12 @@ public class PomodoroHandler implements HttpHandler {
                 handleGetLogs(exchange);
             } else if ("GET".equals(method) && path.endsWith("/pomodoro/stats")) {
                 handleGetStats(exchange);
+            } else if ("GET".equals(method) && path.endsWith("/pomodoro/allowed-urls")) {
+                handleGetAllowedUrls(exchange);
+            } else if ("POST".equals(method) && path.endsWith("/pomodoro/allowed-urls")) {
+                handleAddAllowedUrl(exchange);
+            } else if ("POST".equals(method) && path.endsWith("/pomodoro/allowed-urls/delete")) {
+                handleDeleteAllowedUrl(exchange);
             } else {
                 JsonUtil.sendResponse(exchange, 405, Map.of("error", "Method not allowed"));
             }
@@ -238,5 +246,87 @@ public class PomodoroHandler implements HttpHandler {
         } catch (NumberFormatException e) {
             return def;
         }
+    }
+
+    /* ══════════════════════════════════════
+       ALLOWED URLS (Browser Whitelist)
+       ══════════════════════════════════════ */
+
+    private void handleGetAllowedUrls(HttpExchange exchange) throws Exception {
+        List<Map<String, Object>> urls = allowedUrlDAO.getAllUrls();
+        JsonUtil.sendResponse(exchange, 200, urls);
+    }
+
+    private void handleAddAllowedUrl(HttpExchange exchange) throws Exception {
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> params = JsonUtil.parseBody(body);
+
+        String username = params.getOrDefault("username", "").trim();
+        String url = params.getOrDefault("url", "").trim();
+        String label = params.getOrDefault("label", "").trim();
+        String iconEmoji = params.getOrDefault("iconEmoji", "\uD83C\uDF10").trim();
+
+        if (username.isEmpty() || url.isEmpty() || label.isEmpty()) {
+            JsonUtil.sendResponse(exchange, 400, Map.of("error", "username, url, and label are required"));
+            return;
+        }
+
+        int userId = getUserId(username);
+        if (userId < 0) {
+            JsonUtil.sendResponse(exchange, 404, Map.of("error", "User not found"));
+            return;
+        }
+
+        /* Admin-only check */
+        String role = com.cleverai.util.RateLimitUtil.getUserRole(userId);
+        if (!"admin".equals(role)) {
+            JsonUtil.sendResponse(exchange, 403, Map.of("error", "Only administrators can manage allowed URLs"));
+            return;
+        }
+
+        if (allowedUrlDAO.urlExists(url)) {
+            JsonUtil.sendResponse(exchange, 409, Map.of("error", "URL already exists in the whitelist"));
+            return;
+        }
+
+        boolean ok = allowedUrlDAO.addUrl(url, label, iconEmoji, userId);
+        JsonUtil.sendResponse(exchange, ok ? 200 : 500,
+                ok ? Map.of("success", true) : Map.of("error", "Failed to add URL"));
+    }
+
+    private void handleDeleteAllowedUrl(HttpExchange exchange) throws Exception {
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> params = JsonUtil.parseBody(body);
+
+        String username = params.getOrDefault("username", "").trim();
+        String urlIdStr = params.getOrDefault("urlId", "").trim();
+
+        if (username.isEmpty() || urlIdStr.isEmpty()) {
+            JsonUtil.sendResponse(exchange, 400, Map.of("error", "username and urlId are required"));
+            return;
+        }
+
+        int userId = getUserId(username);
+        if (userId < 0) {
+            JsonUtil.sendResponse(exchange, 404, Map.of("error", "User not found"));
+            return;
+        }
+
+        /* Admin-only check */
+        String role = com.cleverai.util.RateLimitUtil.getUserRole(userId);
+        if (!"admin".equals(role)) {
+            JsonUtil.sendResponse(exchange, 403, Map.of("error", "Only administrators can manage allowed URLs"));
+            return;
+        }
+
+        int urlId = parseInt(urlIdStr, -1);
+        if (urlId < 0) {
+            JsonUtil.sendResponse(exchange, 400, Map.of("error", "Invalid urlId"));
+            return;
+        }
+
+        boolean ok = allowedUrlDAO.deleteUrl(urlId);
+        JsonUtil.sendResponse(exchange, ok ? 200 : 404,
+                ok ? Map.of("success", true) : Map.of("error", "URL not found"));
     }
 }

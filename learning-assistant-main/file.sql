@@ -116,6 +116,16 @@ CREATE TABLE user_goals (
     UNIQUE KEY unique_user_period (user_id, period)
 );
 
+CREATE TABLE allowed_urls (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    url        VARCHAR(500) NOT NULL,
+    label      VARCHAR(100) NOT NULL,
+    icon_emoji VARCHAR(10)  DEFAULT '🌐',
+    created_by INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
 INSERT INTO users (username, email, password_hash, full_name, role, is_verified)
 VALUES ('admin', 'admin@cleverai.com', SHA2('admin123', 256), 'Administrator CleverAI', 'admin', TRUE);
 
