@@ -903,7 +903,7 @@ function renderUrlButtons() {
   if (!container) return;
 
   if (allowedUrls.length === 0) {
-    container.innerHTML = '<p class="url-empty-msg">Belum ada URL yang ditambahkan oleh admin.</p>';
+    container.innerHTML = '<p class="url-empty-msg">No URLs have been added by admin yet.</p>';
     return;
   }
 
@@ -920,7 +920,7 @@ function renderAdminUrlList() {
   if (!list) return;
 
   if (allowedUrls.length === 0) {
-    list.innerHTML = '<p style="font-size:11px;color:var(--t3);padding:4px 0;">Belum ada URL.</p>';
+    list.innerHTML = '<p style="font-size:11px;color:var(--t3);padding:4px 0;">No URLs yet.</p>';
     return;
   }
 
@@ -929,7 +929,7 @@ function renderAdminUrlList() {
       <span class="url-emoji">${u.iconEmoji || '🌐'}</span>
       <span class="url-label-text">${escapeHtml(u.label)}</span>
       <span class="url-href">${escapeHtml(u.url)}</span>
-      <button class="btn-delete-url" onclick="deleteAllowedUrl(${u.id})" title="Hapus URL">
+      <button class="btn-delete-url" onclick="deleteAllowedUrl(${u.id})" title="Delete URL">
         <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
           <path d="M3 3L9 9M9 3L3 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
@@ -951,7 +951,7 @@ function addAllowedUrl() {
   const iconEmoji = document.getElementById('input-emoji').value.trim() || '🌐';
 
   if (!url || !label) {
-    showToast('⚠ URL dan Label wajib diisi.', 'break-end');
+    showToast('⚠ URL and Label are required.', 'break-end');
     return;
   }
 
@@ -973,16 +973,16 @@ function addAllowedUrl() {
     .then(r => r.json())
     .then(d => {
       if (d.success) {
-        showToast('✓ URL berhasil ditambahkan!', 'focus-end');
+        showToast('✓ URL added successfully!', 'focus-end');
         document.getElementById('input-url').value = '';
         document.getElementById('input-label').value = '';
         document.getElementById('input-emoji').value = '';
         loadAllowedUrls();
       } else {
-        showToast('⚠ ' + (d.error || 'Gagal menambah URL'), 'break-end');
+        showToast('⚠ ' + (d.error || 'Failed to add URL'), 'break-end');
       }
     })
-    .catch(() => showToast('⚠ Gagal terhubung ke server', 'break-end'));
+    .catch(() => showToast('⚠ Failed to connect to server', 'break-end'));
 }
 
 function deleteAllowedUrl(urlId) {
@@ -1004,7 +1004,7 @@ function deleteAllowedUrl(urlId) {
     .then(r => r.json())
     .then(d => {
       if (d.success) {
-        showToast('✓ URL dihapus.', 'focus-end');
+        showToast('✓ URL deleted.', 'focus-end');
         /* If the deleted URL is currently open in iframe, close it */
         const deleted = allowedUrls.find(u => u.id === urlId);
         if (deleted && deleted.url === currentIframeUrl) {
@@ -1012,10 +1012,10 @@ function deleteAllowedUrl(urlId) {
         }
         loadAllowedUrls();
       } else {
-        showToast('⚠ ' + (d.error || 'Gagal menghapus URL'), 'break-end');
+        showToast('⚠ ' + (d.error || 'Failed to delete URL'), 'break-end');
       }
     })
-    .catch(() => showToast('⚠ Gagal terhubung ke server', 'break-end'));
+    .catch(() => showToast('⚠ Failed to connect to serverr', 'break-end'));
 }
 
 /* ── Iframe Management ── */
