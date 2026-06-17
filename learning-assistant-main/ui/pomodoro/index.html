@@ -378,7 +378,7 @@
                     <path d="M8 8V14" stroke="currentColor" stroke-width="1.2"/>
                     <path d="M2 5L8 8L14 5" stroke="currentColor" stroke-width="1.2"/>
                   </svg>
-                  Kelola URL (Admin)
+                  Manage URLs (Admin)
                 </div>
                 <div class="admin-url-form">
                   <input type="text" class="input-url" id="input-url" placeholder="https://example.com">
@@ -388,16 +388,16 @@
                     <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
                       <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
-                    Tambah
+                    Add
                   </button>
                 </div>
                 <div class="admin-url-list" id="admin-url-list"></div>
               </div>
 
               <!-- URL Quick Links (visible to all) -->
-              <div class="url-quick-links-title">Pilih website:</div>
+              <div class="url-quick-links-title">Select website:</div>
               <div class="url-quick-links" id="url-quick-links">
-                <p class="url-empty-msg" id="url-empty-msg">Belum ada URL yang ditambahkan oleh admin.</p>
+                <p class="url-empty-msg" id="url-empty-msg">No URLs have been added by admin yet.</p>
               </div>
 
               <!-- Iframe Browser -->
@@ -411,14 +411,14 @@
                     </svg>
                     <span class="url-text" id="iframe-url-text">about:blank</span>
                   </div>
-                  <button class="iframe-toolbar-btn" onclick="openInNewTab()" title="Buka di Tab Baru">
+                  <button class="iframe-toolbar-btn" onclick="openInNewTab()" title="Open in New Tab">
                     <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
                       <path d="M6 3H4C3.45 3 3 3.45 3 4V12C3 12.55 3.45 13 4 13H12C12.55 13 13 12.55 13 12V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                       <path d="M9 3H13V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
                       <path d="M13 3L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                     </svg>
                   </button>
-                  <button class="iframe-toolbar-btn close-btn" onclick="closeIframe()" title="Tutup">
+                  <button class="iframe-toolbar-btn close-btn" onclick="closeIframe()" title="Close">
                     <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
                       <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
@@ -427,13 +427,13 @@
                 <!-- Loading state -->
                 <div class="iframe-loading" id="iframe-loading">
                   <div class="iframe-spinner"></div>
-                  <span class="iframe-loading-text">Memuat halaman...</span>
+                  <span class="iframe-loading-text">Loading page...</span>
                 </div>
                 <!-- Error fallback -->
                 <div class="iframe-error" id="iframe-error">
                   <div class="iframe-error-icon">🚫</div>
-                  <div class="iframe-error-title">Website tidak bisa di-embed</div>
-                  <div class="iframe-error-msg">Website ini memblokir akses iframe karena kebijakan keamanan. Anda masih bisa membukanya di tab baru.</div>
+                  <div class="iframe-error-title">Website cannot be embedded</div>
+                  <div class="iframe-error-msg">This website blocks iframe access due to security policies. You can still open it in a new tab.</div>
                   <button class="btn-open-tab" onclick="openInNewTab()">
                     <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
                       <path d="M6 3H4C3.45 3 3 3.45 3 4V12C3 12.55 3.45 13 4 13H12C12.55 13 13 12.55 13 12V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
